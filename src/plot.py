@@ -29,6 +29,7 @@ def plot_one_sample(
         freq='h'
     )
 
+
     # line plot with past values
     title = f'Pick up hour={features_["pickup_hour"]}, location_id={features_["pickup_location_id"]}' if display_title else None
     fig = px.line(
