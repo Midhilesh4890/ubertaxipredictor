@@ -40,7 +40,7 @@ def validate_raw_data(
     next_month_start = f'{year}-{month+1:02d}-01' if month < 12 else f'{year+1}-01-01'
     rides = rides[rides.pickup_datetime >= this_month_start]
     rides = rides[rides.pickup_datetime < next_month_start]
-
+    
     return rides
 
 
@@ -74,8 +74,7 @@ def fetch_ride_events_from_data_warehouse(
     # using its 7*52-days-ago value
     rides['pickup_datetime'] += timedelta(days=7*52)
 
-    rides.sort_values(
-        by=['pickup_location_id', 'pickup_datetime'], inplace=True)
+    rides.sort_values(by=['pickup_location_id', 'pickup_datetime'], inplace=True)
 
     return rides
 
@@ -96,9 +95,9 @@ def load_raw_data(
         pd.DataFrame: DataFrame with the following columns:
             - pickup_datetime: datetime of the pickup
             - pickup_location_id: ID of the pickup location
-    """
+    """  
     rides = pd.DataFrame()
-
+    
     if months is None:
         # download data for the entire year (all months)
         months = list(range(1, 13))
@@ -107,7 +106,7 @@ def load_raw_data(
         months = [months]
 
     for month in months:
-
+        
         local_file = RAW_DATA_DIR / f'rides_{year}-{month:02d}.parquet'
         if not local_file.exists():
             try:
@@ -118,14 +117,13 @@ def load_raw_data(
                 print(f'{year}-{month:02d} file is not available')
                 continue
         else:
-            print(f'File {year}-{month:02d} was already in local storage')
+            print(f'File {year}-{month:02d} was already in local storage') 
 
         # load the file into Pandas
         rides_one_month = pd.read_parquet(local_file)
 
         # rename columns
-        rides_one_month = rides_one_month[[
-            'tpep_pickup_datetime', 'PULocationID']]
+        rides_one_month = rides_one_month[['tpep_pickup_datetime', 'PULocationID']]
         rides_one_month.rename(columns={
             'tpep_pickup_datetime': 'pickup_datetime',
             'PULocationID': 'pickup_location_id',
@@ -157,14 +155,13 @@ def add_missing_slots(ts_data: pd.DataFrame) -> pd.DataFrame:
 
     full_range = pd.date_range(ts_data['pickup_hour'].min(),
                                ts_data['pickup_hour'].max(),
-                               freq='h')
+                               freq='H')
     output = pd.DataFrame()
     for location_id in tqdm(location_ids):
 
         # keep only rides for this 'location_id'
-        ts_data_i = ts_data.loc[ts_data.pickup_location_id ==
-                                location_id, ['pickup_hour', 'rides']]
-
+        ts_data_i = ts_data.loc[ts_data.pickup_location_id == location_id, ['pickup_hour', 'rides']]
+        
         if ts_data_i.empty:
             # add a dummy entry with a 0
             ts_data_i = pd.DataFrame.from_dict([
@@ -176,15 +173,15 @@ def add_missing_slots(ts_data: pd.DataFrame) -> pd.DataFrame:
         ts_data_i.set_index('pickup_hour', inplace=True)
         ts_data_i.index = pd.DatetimeIndex(ts_data_i.index)
         ts_data_i = ts_data_i.reindex(full_range, fill_value=0)
-
+        
         # add back `location_id` columns
         ts_data_i['pickup_location_id'] = location_id
 
         output = pd.concat([output, ts_data_i])
-
+    
     # move the pickup_hour from the index to a dataframe column
     output = output.reset_index().rename(columns={'index': 'pickup_hour'})
-
+    
     return output
 
 
@@ -193,9 +190,8 @@ def transform_raw_data_into_ts_data(
 ) -> pd.DataFrame:
     """"""
     # sum rides per location and pickup_hour
-    rides['pickup_hour'] = rides['pickup_datetime'].dt.floor('h')
-    agg_rides = rides.groupby(
-        ['pickup_hour', 'pickup_location_id']).size().reset_index()
+    rides['pickup_hour'] = rides['pickup_datetime'].dt.floor('H')
+    agg_rides = rides.groupby(['pickup_hour', 'pickup_location_id']).size().reset_index()
     agg_rides.rename(columns={0: 'rides'}, inplace=True)
 
     # add rows for (locations, pickup_hours)s with 0 rides
@@ -213,18 +209,17 @@ def transform_ts_data_into_features_and_target(
     Slices and transposes data from time-series format into a (features, target)
     format that we can use to train Supervised ML models
     """
-    assert set(ts_data.columns) == {
-        'pickup_hour', 'rides', 'pickup_location_id'}
+    assert set(ts_data.columns) == {'pickup_hour', 'rides', 'pickup_location_id'}
 
     location_ids = ts_data['pickup_location_id'].unique()
     features = pd.DataFrame()
     targets = pd.DataFrame()
-
+    
     for location_id in tqdm(location_ids):
-
+        
         # keep only ts data for this `location_id`
         ts_data_one_location = ts_data.loc[
-            ts_data.pickup_location_id == location_id,
+            ts_data.pickup_location_id == location_id, 
             ['pickup_hour', 'rides']
         ].sort_values(by=['pickup_hour'])
 
@@ -243,21 +238,18 @@ def transform_ts_data_into_features_and_target(
         for i, idx in enumerate(indices):
             x[i, :] = ts_data_one_location.iloc[idx[0]:idx[1]]['rides'].values
             y[i] = ts_data_one_location.iloc[idx[1]:idx[2]]['rides'].values[0]
-            pickup_hours.append(
-                ts_data_one_location.iloc[idx[1]]['pickup_hour'])
+            pickup_hours.append(ts_data_one_location.iloc[idx[1]]['pickup_hour'])
 
         # numpy -> pandas
         features_one_location = pd.DataFrame(
             x,
-            columns=[
-                f'rides_previous_{i+1}_hour' for i in reversed(range(input_seq_len))]
+            columns=[f'rides_previous_{i+1}_hour' for i in reversed(range(input_seq_len))]
         )
         features_one_location['pickup_hour'] = pickup_hours
         features_one_location['pickup_location_id'] = location_id
 
         # numpy -> pandas
-        targets_one_location = pd.DataFrame(
-            y, columns=[f'target_rides_next_hour'])
+        targets_one_location = pd.DataFrame(y, columns=[f'target_rides_next_hour'])
 
         # concatenate results
         features = pd.concat([features, features_one_location])
@@ -273,20 +265,20 @@ def get_cutoff_indices_features_and_target(
     data: pd.DataFrame,
     input_seq_len: int,
     step_size: int
-) -> list:
+    ) -> list:
 
-    stop_position = len(data) - 1
+        stop_position = len(data) - 1
+        
+        # Start the first sub-sequence at index position 0
+        subseq_first_idx = 0
+        subseq_mid_idx = input_seq_len
+        subseq_last_idx = input_seq_len + 1
+        indices = []
+        
+        while subseq_last_idx <= stop_position:
+            indices.append((subseq_first_idx, subseq_mid_idx, subseq_last_idx))
+            subseq_first_idx += step_size
+            subseq_mid_idx += step_size
+            subseq_last_idx += step_size
 
-    # Start the first sub-sequence at index position 0
-    subseq_first_idx = 0
-    subseq_mid_idx = input_seq_len
-    subseq_last_idx = input_seq_len + 1
-    indices = []
-
-    while subseq_last_idx <= stop_position:
-        indices.append((subseq_first_idx, subseq_mid_idx, subseq_last_idx))
-        subseq_first_idx += step_size
-        subseq_mid_idx += step_size
-        subseq_last_idx += step_size
-
-    return indices
+        return indices

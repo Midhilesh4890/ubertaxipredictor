@@ -1,19 +1,16 @@
-import os, sys
+import os
 
 from dotenv import load_dotenv
-# Add the parent directory to the Python path
-script_dir = os.getcwd()  # Get the current working directory
-sys.path.append(os.path.abspath(os.path.join(script_dir, '..'))
-                )
+
 from src.feature_store_api import FeatureGroupConfig, FeatureViewConfig
 from src.paths import PARENT_DIR
 
 # load key-value pairs from .env file located in the parent directory
-load_dotenv('.env')
+load_dotenv(PARENT_DIR / '.env')
 
-# HOPSWORKS_PROJECT_NAME = 'taxidemand_predictor'
+HOPSWORKS_PROJECT_NAME = 'taxi_demand'
 try:
-    HOPSWORKS_PROJECT_NAME = os.environ['HOPSWORKS_PROJECT_NAME']
+    # HOPSWORKS_PROJECT_NAME = os.environ['HOPSWORKS_PROJECT_NAME']
     HOPSWORKS_API_KEY = os.environ['HOPSWORKS_API_KEY']
 except:
     raise Exception(
@@ -22,7 +19,7 @@ except:
 
 # TODO: remove FEATURE_GROUP_NAME and FEATURE_GROUP_VERSION, and use FEATURE_GROUP_METADATA instead
 FEATURE_GROUP_NAME = 'time_series_hourly_feature_group'
-FEATURE_GROUP_VERSION = 1
+FEATURE_GROUP_VERSION = 3
 FEATURE_GROUP_METADATA = FeatureGroupConfig(
     name='time_series_hourly_feature_group',
     version=3,
@@ -32,7 +29,7 @@ FEATURE_GROUP_METADATA = FeatureGroupConfig(
     online_enabled=True,
 )
 
-# # TODO: remove FEATURE_VIEW_NAME and FEATURE_VIEW_VERSION, and use FEATURE_VIEW_METADATA instead
+# TODO: remove FEATURE_VIEW_NAME and FEATURE_VIEW_VERSION, and use FEATURE_VIEW_METADATA instead
 FEATURE_VIEW_NAME = 'time_series_hourly_feature_view'
 FEATURE_VIEW_VERSION = 4
 FEATURE_VIEW_METADATA = FeatureViewConfig(
@@ -41,7 +38,7 @@ FEATURE_VIEW_METADATA = FeatureViewConfig(
     feature_group=FEATURE_GROUP_METADATA,
 )
 
-MODEL_NAME = 'taxidemand_predictor'
+MODEL_NAME = 'taxi_demand_predictor'
 
 # added for monitoring purposes
 # TODO remove FEATURE_GROUP_MODEL_PREDICTIONS and use FEATURE_GROUP_PREDICTIONS_METADATA instead
