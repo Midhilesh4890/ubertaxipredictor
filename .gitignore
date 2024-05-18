@@ -7,3 +7,5 @@ data/
 *.pkl
 .TODOS
 *.env
+*.ipynb
+
