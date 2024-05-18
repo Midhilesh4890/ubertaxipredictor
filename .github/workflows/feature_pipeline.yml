@@ -1,9 +1,18 @@
 name: feature-pipeline
 
-on:
-  schedule:
-  - cron: '0 * * * *'
+# on:
+#   schedule:
+#   - cron: '0 * * * *'
 
+#   workflow_dispatch:
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 env:
